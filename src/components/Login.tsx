@@ -1,8 +1,20 @@
 import { useState, useEffect } from "react";
 import { Mail, Lock, Eye, EyeOff } from "lucide-react";
+import logoHc from "@/assets/logo-hc.png";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import supabase from "../utils/supabase";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardFooter,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 interface LoginProps {
   onLoginSuccess: (email: string) => void;
@@ -19,7 +31,6 @@ export default function Login({ onLoginSuccess }: LoginProps) {
   const { session } = useAuth();
 
   useEffect(() => {
-    // Redirect if already logged in
     if (session) {
       navigate("/", { replace: true });
     }
@@ -50,143 +61,108 @@ export default function Login({ onLoginSuccess }: LoginProps) {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-gray-50 via-gray-100 to-yellow-50/30 p-4">
       <div className="w-full max-w-md">
-        {/* Login Card */}
-        <div className="bg-white rounded-2xl shadow-2xl overflow-hidden">
-          {/* Yellow Accent Bar */}
-          <div className="h-2 bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-400"></div>
+        <Card className="shadow-xl border-0">
+          <div className="h-1.5 bg-gradient-to-r from-yellow-400 via-yellow-500 to-yellow-400 rounded-t-xl" />
 
-          <div className="p-8 sm:p-10">
-            {/* Header */}
-            <div className="text-center mb-8">
-              <div className="inline-flex items-center justify-center w-16 h-16 bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-2xl mb-4 shadow-lg">
-                <Lock className="w-8 h-8 text-white" />
-              </div>
-              <h1 className="text-3xl font-bold text-gray-800 mb-2">
-                Welcome Back
-              </h1>
-              <p className="text-gray-500">
-                Sign in to continue to your account
-              </p>
+          <CardHeader className="text-center pb-2 pt-8">
+            <div className="mx-auto mb-6">
+              <img
+                src={logoHc}
+                alt="Harum Center"
+                className="h-40 w-auto mx-auto"
+              />
             </div>
+            <CardTitle className="text-2xl font-bold">Welcome Back</CardTitle>
+            <CardDescription>
+              Sign in to continue to your account
+            </CardDescription>
+          </CardHeader>
 
-            {/* Form */}
-            <form onSubmit={handleSubmit} className="space-y-6">
-              {/* Error Message */}
+          <CardContent className="pb-4">
+            <form onSubmit={handleSubmit} className="space-y-4">
               {error && (
-                <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl text-sm">
+                <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
                   {error}
                 </div>
               )}
-              {/* Email Field */}
-              <div>
-                <label
-                  htmlFor="email"
-                  className="block text-sm font-medium text-gray-700 mb-2"
-                >
-                  Email Address
-                </label>
+
+              <div className="space-y-2">
+                <Label htmlFor="email">Email Address</Label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <Mail className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
+                  <Mail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
                     id="email"
                     type="email"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    className="w-full pl-12 pr-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-yellow-400 focus:border-transparent outline-none transition-all duration-200 bg-gray-50 hover:bg-white"
+                    className="pl-10 h-10"
                     placeholder="you@example.com"
                     required
                   />
                 </div>
               </div>
 
-              {/* Password Field */}
-              <div>
-                <label
-                  htmlFor="password"
-                  className="block text-sm font-medium text-gray-700 mb-2"
-                >
-                  Password
-                </label>
+              <div className="space-y-2">
+                <Label htmlFor="password">Password</Label>
                 <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
-                    <Lock className="h-5 w-5 text-gray-400" />
-                  </div>
-                  <input
+                  <Lock className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Input
                     id="password"
                     type={showPassword ? "text" : "password"}
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full pl-12 pr-12 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-yellow-400 focus:border-transparent outline-none transition-all duration-200 bg-gray-50 hover:bg-white"
+                    className="pl-10 pr-10 h-10"
                     placeholder="••••••••"
                     required
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-gray-600 transition-colors"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 transition-colors"
+                    tabIndex={-1}
                   >
                     {showPassword ? (
-                      <EyeOff className="h-5 w-5" />
+                      <EyeOff className="h-4 w-4" />
                     ) : (
-                      <Eye className="h-5 w-5" />
+                      <Eye className="h-4 w-4" />
                     )}
                   </button>
                 </div>
               </div>
 
-              {/* Remember Me & Forgot Password */}
-              <div className="flex items-center justify-between">
-                <label className="flex items-center cursor-pointer group">
-                  <input
-                    type="checkbox"
-                    checked={rememberMe}
-                    onChange={(e) => setRememberMe(e.target.checked)}
-                    className="w-4 h-4 border-2 border-gray-300 rounded text-yellow-500 focus:ring-2 focus:ring-yellow-400 focus:ring-offset-0 cursor-pointer"
-                  />
-                  <span className="ml-2 text-sm text-gray-600 group-hover:text-gray-800 transition-colors">
-                    Remember me
-                  </span>
-                </label>
-                <a
-                  href="#"
-                  className="text-sm font-medium text-yellow-600 hover:text-yellow-700 transition-colors"
-                >
-                  Forgot password?
-                </a>
-              </div>
+              <label className="flex items-center gap-2 cursor-pointer group">
+                <input
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="h-4 w-4 rounded border-gray-300 text-yellow-500 focus:ring-yellow-500"
+                />
+                <span className="text-sm text-gray-600 group-hover:text-gray-800">
+                  Remember me
+                </span>
+              </label>
 
-              {/* Submit Button */}
-              <button
+              <Button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-500 hover:to-yellow-600 text-white font-semibold py-3 px-4 rounded-xl shadow-lg hover:shadow-xl transform hover:-translate-y-0.5 transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-yellow-400 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed disabled:transform-none"
+                className="w-full h-10 text-sm font-semibold shadow-lg shadow-yellow-500/25"
               >
                 {loading ? "Signing In..." : "Sign In"}
-              </button>
+              </Button>
             </form>
-          </div>
+          </CardContent>
 
-          {/* Footer */}
-          <div className="px-8 py-6 bg-gray-50 border-t border-gray-100 text-center">
-            <p className="text-sm text-gray-600">
-              Don't have an account?{" "}
-              <a
-                href="#"
-                className="font-medium text-yellow-600 hover:text-yellow-700 transition-colors"
-              >
-                Sign up for free
-              </a>
+          <CardFooter className="flex justify-center border-t bg-gray-50/50 py-4 rounded-b-xl">
+            <p className="text-sm text-gray-500">
+              Need an account? Contact your administrator.
             </p>
-          </div>
-        </div>
+          </CardFooter>
+        </Card>
 
-        {/* Footer Text */}
-        <p className="text-center text-sm text-gray-500 mt-8">
-          Protected by advanced security measures
+        <p className="text-center text-xs text-gray-400 mt-6">
+          &copy; 2026 Harum Center. All rights reserved.
         </p>
       </div>
     </div>

@@ -1,22 +1,36 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { ArrowLeft, Save } from "lucide-react";
-import {
-  type WorkProgramSubmissionInsert,
-  type RumahQuran,
-} from "../../types/database";
+import { ArrowLeft, Save, Loader2 } from "lucide-react";
+import { type RumahQuran } from "../../types/database";
 import { api } from "../../utils/supabase";
 import { useAuth } from "../../contexts/AuthContext";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 const programTypes = [
-  "Kajian Rutin",
-  "Kajian Umum",
-  "Tahsin",
   "Tahfidz",
-  "Kegiatan Sosial",
-  "Pelatihan",
-  "Seminar",
+  "Tahsin",
+  "Kajian",
+  "Daurah",
   "Workshop",
+  "Seminar",
+  "Bakti Sosial",
   "Lainnya",
 ];
 
@@ -27,74 +41,45 @@ export default function CreatePage() {
   const [error, setError] = useState<string | null>(null);
   const [rumahQuranList, setRumahQuranList] = useState<RumahQuran[]>([]);
 
-  const [formData, setFormData] = useState<WorkProgramSubmissionInsert>({
-    submitted_by: userProfile?.id || null,
-    rumah_quran_id: userProfile?.rumah_quran_id || null,
+  const [formData, setFormData] = useState({
     name: "",
     type: "",
     description: "",
-    estimated_audience_number: null,
-    actual_audience_number: null,
+    rumah_quran_id: "",
     submitted_start_date: "",
     submitted_end_date: "",
-    actual_start_date: null,
-    actual_end_date: null,
-    submitted_duration: null,
-    actual_duration: null,
-    submitted_cost: null,
-    approved_cost: null,
-    submission_status: "submitted",
-    is_verified_by_director: false,
-    updated_at: null,
-    deleted_at: null,
+    submitted_cost: "",
+    estimated_audience_number: "",
   });
 
-  // Fetch Rumah Quran list for dropdown
   useEffect(() => {
     const fetchRumahQuran = async () => {
       try {
-        const { data, error } = await api.get<RumahQuran[]>("rumah_quran", {
+        const { data } = await api.get<RumahQuran[]>("rumah_quran", {
           select: "*",
           filter: { deleted_at: "is.null", is_active: "eq.true" },
           order: { column: "name", ascending: true },
         });
-
-        if (error) throw error;
         setRumahQuranList(data || []);
-      } catch (err) {
-        console.error("Error fetching Rumah Quran:", err);
+      } catch (err: any) {
+        console.error("Failed to fetch Rumah Quran:", err);
       }
     };
-
     fetchRumahQuran();
   }, []);
 
-  // Update submitted_by when userProfile loads
-  useEffect(() => {
-    if (userProfile?.id) {
-      setFormData((prev) => ({
-        ...prev,
-        submitted_by: userProfile.id,
-        rumah_quran_id: userProfile.rumah_quran_id || prev.rumah_quran_id,
-      }));
-    }
-  }, [userProfile]);
+  const calculateDuration = (startDate: string, endDate: string): number => {
+    if (!startDate || !endDate) return 0;
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+    const diff = end.getTime() - start.getTime();
+    return Math.max(0, Math.ceil(diff / (1000 * 60 * 60 * 24)) + 1);
+  };
 
   const handleChange = (
-    e: React.ChangeEvent<
-      HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement
-    >,
+    e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>,
   ) => {
-    const { name, value, type } = e.target;
-    setFormData((prev) => ({
-      ...prev,
-      [name]:
-        type === "number"
-          ? value === ""
-            ? null
-            : Number(value)
-          : value || null,
-    }));
+    setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -103,26 +88,35 @@ export default function CreatePage() {
     setError(null);
 
     try {
-      // Calculate duration if dates are provided
-      let duration = formData.submitted_duration;
-      if (formData.submitted_start_date && formData.submitted_end_date) {
-        const start = new Date(formData.submitted_start_date);
-        const end = new Date(formData.submitted_end_date);
-        duration =
-          Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24)) +
-          1;
-      }
+      const submittedDuration = calculateDuration(
+        formData.submitted_start_date,
+        formData.submitted_end_date,
+      );
 
       const { error } = await api.insert("work_program_submission", {
-        ...formData,
-        submitted_duration: duration,
+        name: formData.name,
+        type: formData.type,
+        description: formData.description || null,
+        rumah_quran_id: formData.rumah_quran_id
+          ? parseInt(formData.rumah_quran_id)
+          : null,
+        submitted_start_date: formData.submitted_start_date || null,
+        submitted_end_date: formData.submitted_end_date || null,
+        submitted_duration: submittedDuration || null,
+        submitted_cost: formData.submitted_cost
+          ? parseFloat(formData.submitted_cost)
+          : null,
+        estimated_audience_number: formData.estimated_audience_number
+          ? parseInt(formData.estimated_audience_number)
+          : null,
+        submission_status: "submitted",
+        submitted_by: userProfile?.id || null,
       });
 
       if (error) throw error;
-
       navigate("/work-program");
     } catch (err: any) {
-      setError(err.message || "Failed to create work program");
+      setError(err.message);
     } finally {
       setLoading(false);
     }
@@ -132,17 +126,14 @@ export default function CreatePage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-center gap-4">
-        <button
-          onClick={() => navigate("/work-program")}
-          className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-        >
-          <ArrowLeft className="w-5 h-5" />
-        </button>
+        <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+          <ArrowLeft className="h-5 w-5" />
+        </Button>
         <div>
-          <h2 className="text-2xl font-bold text-gray-800">
+          <h2 className="text-2xl font-bold tracking-tight">
             New Work Program Submission
           </h2>
-          <p className="text-gray-600 mt-1">
+          <p className="text-gray-500 mt-1">
             Submit a new work program proposal
           </p>
         </div>
@@ -150,223 +141,177 @@ export default function CreatePage() {
 
       {/* Error */}
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-red-600">{error}</p>
+        <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
+          {error}
         </div>
       )}
 
       {/* Form */}
-      <form
-        onSubmit={handleSubmit}
-        className="bg-white rounded-lg shadow p-6 space-y-6"
-      >
-        {/* Basic Information */}
-        <div>
-          <h3 className="text-lg font-medium text-gray-900 mb-4">
-            Basic Information
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Program Name */}
-            <div className="md:col-span-2">
-              <label
-                htmlFor="name"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Program Name <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                id="name"
-                name="name"
-                value={formData.name || ""}
-                onChange={handleChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                placeholder="Enter program name"
-              />
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <Card>
+          <CardHeader>
+            <CardTitle>Program Information</CardTitle>
+            <CardDescription>
+              Provide details about the work program
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="name">Program Name *</Label>
+                <Input
+                  id="name"
+                  name="name"
+                  value={formData.name}
+                  onChange={handleChange}
+                  placeholder="Enter program name"
+                  required
+                />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="type">Program Type *</Label>
+                <Select
+                  value={formData.type}
+                  onValueChange={(v) => setFormData({ ...formData, type: v })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select type" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {programTypes.map((t) => (
+                      <SelectItem key={t} value={t}>
+                        {t}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
             </div>
 
-            {/* Type */}
-            <div>
-              <label
-                htmlFor="type"
-                className="block text-sm font-medium text-gray-700 mb-1"
+            <div className="space-y-2">
+              <Label htmlFor="rumah_quran_id">Rumah Quran *</Label>
+              <Select
+                value={formData.rumah_quran_id}
+                onValueChange={(v) =>
+                  setFormData({ ...formData, rumah_quran_id: v })
+                }
               >
-                Program Type <span className="text-red-500">*</span>
-              </label>
-              <select
-                id="type"
-                name="type"
-                value={formData.type || ""}
-                onChange={handleChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-              >
-                <option value="">Select type</option>
-                {programTypes.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Rumah Quran" />
+                </SelectTrigger>
+                <SelectContent>
+                  {rumahQuranList.map((rq) => (
+                    <SelectItem key={rq.id} value={rq.id.toString()}>
+                      {rq.code} - {rq.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
 
-            {/* Rumah Quran */}
-            <div>
-              <label
-                htmlFor="rumah_quran_id"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Rumah Quran <span className="text-red-500">*</span>
-              </label>
-              <select
-                id="rumah_quran_id"
-                name="rumah_quran_id"
-                value={formData.rumah_quran_id || ""}
-                onChange={handleChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-              >
-                <option value="">Select Rumah Quran</option>
-                {rumahQuranList.map((rq) => (
-                  <option key={rq.id} value={rq.id}>
-                    {rq.code} - {rq.name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Description */}
-            <div className="md:col-span-2">
-              <label
-                htmlFor="description"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Description
-              </label>
-              <textarea
+            <div className="space-y-2">
+              <Label htmlFor="description">Description</Label>
+              <Textarea
                 id="description"
                 name="description"
-                value={formData.description || ""}
+                value={formData.description}
                 onChange={handleChange}
-                rows={3}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
                 placeholder="Describe the work program..."
+                rows={4}
               />
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
-        {/* Schedule */}
-        <div>
-          <h3 className="text-lg font-medium text-gray-900 mb-4">Schedule</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Start Date */}
-            <div>
-              <label
-                htmlFor="submitted_start_date"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Start Date <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="date"
-                id="submitted_start_date"
-                name="submitted_start_date"
-                value={formData.submitted_start_date || ""}
-                onChange={handleChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-              />
-            </div>
-
-            {/* End Date */}
-            <div>
-              <label
-                htmlFor="submitted_end_date"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                End Date <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="date"
-                id="submitted_end_date"
-                name="submitted_end_date"
-                value={formData.submitted_end_date || ""}
-                onChange={handleChange}
-                required
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-              />
-            </div>
-          </div>
-        </div>
-
-        {/* Budget & Audience */}
-        <div>
-          <h3 className="text-lg font-medium text-gray-900 mb-4">
-            Budget & Audience
-          </h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Estimated Audience */}
-            <div>
-              <label
-                htmlFor="estimated_audience_number"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Estimated Audience
-              </label>
-              <input
-                type="number"
-                id="estimated_audience_number"
-                name="estimated_audience_number"
-                value={formData.estimated_audience_number || ""}
-                onChange={handleChange}
-                min="0"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                placeholder="Number of expected attendees"
-              />
+        <Card>
+          <CardHeader>
+            <CardTitle>Schedule & Budget</CardTitle>
+            <CardDescription>
+              Define the timeline and estimated costs
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="submitted_start_date">Start Date</Label>
+                <Input
+                  id="submitted_start_date"
+                  name="submitted_start_date"
+                  type="date"
+                  value={formData.submitted_start_date}
+                  onChange={handleChange}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="submitted_end_date">End Date</Label>
+                <Input
+                  id="submitted_end_date"
+                  name="submitted_end_date"
+                  type="date"
+                  value={formData.submitted_end_date}
+                  onChange={handleChange}
+                />
+              </div>
             </div>
 
-            {/* Submitted Cost */}
-            <div>
-              <label
-                htmlFor="submitted_cost"
-                className="block text-sm font-medium text-gray-700 mb-1"
-              >
-                Estimated Budget (IDR)
-              </label>
-              <input
-                type="number"
-                id="submitted_cost"
-                name="submitted_cost"
-                value={formData.submitted_cost || ""}
-                onChange={handleChange}
-                min="0"
-                step="1000"
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-                placeholder="Enter budget amount"
-              />
+            {formData.submitted_start_date && formData.submitted_end_date && (
+              <p className="text-sm text-gray-500">
+                Duration:{" "}
+                <span className="font-medium text-gray-900">
+                  {calculateDuration(
+                    formData.submitted_start_date,
+                    formData.submitted_end_date,
+                  )}{" "}
+                  days
+                </span>
+              </p>
+            )}
+
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="submitted_cost">Estimated Budget (IDR)</Label>
+                <Input
+                  id="submitted_cost"
+                  name="submitted_cost"
+                  type="number"
+                  min="0"
+                  value={formData.submitted_cost}
+                  onChange={handleChange}
+                  placeholder="0"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="estimated_audience_number">
+                  Estimated Audience
+                </Label>
+                <Input
+                  id="estimated_audience_number"
+                  name="estimated_audience_number"
+                  type="number"
+                  min="0"
+                  value={formData.estimated_audience_number}
+                  onChange={handleChange}
+                  placeholder="0"
+                />
+              </div>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
         {/* Actions */}
-        <div className="flex items-center justify-end gap-3 pt-4 border-t">
-          <button
-            type="button"
-            onClick={() => navigate("/work-program")}
-            className="px-4 py-2 text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
-          >
+        <div className="flex items-center justify-end gap-3">
+          <Button type="button" variant="outline" onClick={() => navigate(-1)}>
             Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={loading}
-            className="inline-flex items-center px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white font-medium rounded-lg transition-colors disabled:opacity-50"
-          >
-            <Save className="w-5 h-5 mr-2" />
-            {loading ? "Saving..." : "Save"}
-          </button>
+          </Button>
+          <Button type="submit" disabled={loading}>
+            {loading ? (
+              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+            ) : (
+              <Save className="h-4 w-4 mr-2" />
+            )}
+            Submit Program
+          </Button>
         </div>
       </form>
     </div>

@@ -1,6 +1,14 @@
 import { useState, useEffect } from "react";
 import { useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Edit, Calendar, Users, DollarSign } from "lucide-react";
+import {
+  ArrowLeft,
+  Edit,
+  Calendar,
+  DollarSign,
+  Users,
+  CheckCircle,
+  Clock,
+} from "lucide-react";
 import {
   type WorkProgramSubmission,
   type RumahQuran,
@@ -8,14 +16,16 @@ import {
 } from "../../types/database";
 import { api } from "../../utils/supabase";
 import { useAuth } from "../../contexts/AuthContext";
-
-const statusColors: Record<string, string> = {
-  submitted: "bg-blue-100 text-blue-800",
-  revised: "bg-yellow-100 text-yellow-800",
-  approved: "bg-green-100 text-green-800",
-  rejected: "bg-red-100 text-red-800",
-  completed: "bg-purple-100 text-purple-800",
-};
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 
 const statusLabels: Record<string, string> = {
   submitted: "SUBMITTED",
@@ -26,56 +36,61 @@ const statusLabels: Record<string, string> = {
 };
 
 export default function ViewPage() {
-  const { id } = useParams<{ id: string }>();
+  const { id } = useParams();
   const navigate = useNavigate();
   const { userProfile } = useAuth();
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [data, setData] = useState<WorkProgramSubmission | null>(null);
+  const isMaster = userProfile?.user_roles === "MASTER";
+
+  const [program, setProgram] = useState<WorkProgramSubmission | null>(null);
   const [rumahQuran, setRumahQuran] = useState<RumahQuran | null>(null);
   const [submittedBy, setSubmittedBy] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
+      setLoading(true);
       try {
-        // Fetch work program
-        const { data: program, error: programError } =
-          await api.get<WorkProgramSubmission>("work_program_submission", {
+        const { data, error } = await api.get<WorkProgramSubmission[]>(
+          "work_program_submission",
+          {
             select: "*",
-            filter: { id: `eq.${id}` },
-            single: true,
-          });
+            filter: { id: `eq.${id}`, deleted_at: "is.null" },
+          },
+        );
 
-        if (programError) throw programError;
-        setData(program);
+        if (error) throw error;
+        const prog = data?.[0];
+        if (!prog) {
+          setError("Work program not found");
+          return;
+        }
+        setProgram(prog);
 
-        // Fetch related Rumah Quran
-        if (program?.rumah_quran_id) {
-          const { data: rq } = await api.get<RumahQuran>("rumah_quran", {
+        // Fetch related data
+        if (prog.rumah_quran_id) {
+          const { data: rqData } = await api.get<RumahQuran[]>("rumah_quran", {
             select: "*",
-            filter: { id: `eq.${program.rumah_quran_id}` },
-            single: true,
+            filter: { id: `eq.${prog.rumah_quran_id}` },
           });
-          setRumahQuran(rq);
+          setRumahQuran(rqData?.[0] || null);
         }
 
-        // Fetch submitter profile
-        if (program?.submitted_by) {
-          const { data: profile } = await api.get<Profile>("profiles", {
+        if (prog.submitted_by) {
+          const { data: profileData } = await api.get<Profile[]>("profiles", {
             select: "*",
-            filter: { id: `eq.${program.submitted_by}` },
-            single: true,
+            filter: { id: `eq.${prog.submitted_by}` },
           });
-          setSubmittedBy(profile);
+          setSubmittedBy(profileData?.[0] || null);
         }
       } catch (err: any) {
-        setError(err.message || "Failed to load data");
+        setError(err.message);
       } finally {
         setLoading(false);
       }
     };
 
-    if (id) fetchData();
+    fetchData();
   }, [id]);
 
   const formatDate = (dateString: string | null) => {
@@ -88,7 +103,7 @@ export default function ViewPage() {
   };
 
   const formatCurrency = (amount: number | null) => {
-    if (amount === null) return "-";
+    if (amount === null || amount === undefined) return "-";
     return new Intl.NumberFormat("id-ID", {
       style: "currency",
       currency: "IDR",
@@ -99,15 +114,25 @@ export default function ViewPage() {
   if (loading) {
     return (
       <div className="flex items-center justify-center h-64">
-        <div className="text-lg text-gray-600">Loading...</div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500" />
       </div>
     );
   }
 
-  if (error || !data) {
+  if (error || !program) {
     return (
-      <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-        <p className="text-red-600">{error || "Program not found"}</p>
+      <div className="space-y-6">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
+          <h2 className="text-2xl font-bold tracking-tight">
+            Work Program Details
+          </h2>
+        </div>
+        <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
+          {error || "Work program not found"}
+        </div>
       </div>
     );
   }
@@ -115,254 +140,238 @@ export default function ViewPage() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div className="flex items-center gap-4">
-          <button
-            onClick={() => navigate("/work-program")}
-            className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </button>
+          <Button variant="ghost" size="icon" onClick={() => navigate(-1)}>
+            <ArrowLeft className="h-5 w-5" />
+          </Button>
           <div>
-            <h2 className="text-2xl font-bold text-gray-800">
-              Work Program Details
-            </h2>
-            <p className="text-gray-600 mt-1">
-              View complete program information
+            <div className="flex items-center gap-3">
+              <h2 className="text-2xl font-bold tracking-tight">
+                {program.name}
+              </h2>
+              <Badge
+                variant={
+                  (program.submission_status as
+                    | "submitted"
+                    | "revised"
+                    | "approved"
+                    | "rejected"
+                    | "completed") || "submitted"
+                }
+              >
+                {statusLabels[program.submission_status || "submitted"] ||
+                  "SUBMITTED"}
+              </Badge>
+            </div>
+            <p className="text-gray-500 mt-1">
+              {program.type}
+              {rumahQuran ? ` · ${rumahQuran.code} - ${rumahQuran.name}` : ""}
             </p>
           </div>
         </div>
-        <button
-          onClick={() => navigate(`/work-program/edit/${id}`)}
-          className="inline-flex items-center px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white font-medium rounded-lg transition-colors"
-        >
-          <Edit className="w-5 h-5 mr-2" />
-          Edit
-        </button>
+        <Button onClick={() => navigate(`/work-program/edit/${program.id}`)}>
+          <Edit className="h-4 w-4 mr-2" />
+          Edit Program
+        </Button>
       </div>
 
-      {/* Status Badge */}
-      <div className="flex items-center gap-3">
-        <span
-          className={`inline-flex px-3 py-1 text-sm font-semibold rounded-full ${
-            statusColors[data.submission_status || "submitted"] ||
-            statusColors.submitted
-          }`}
-        >
-          {statusLabels[data.submission_status || "submitted"] || "SUBMITTED"}
-        </span>
-        {data.is_verified_by_director && (
-          <span className="inline-flex items-center px-3 py-1 text-sm font-semibold rounded-full bg-green-100 text-green-800">
-            ✓ Director Verified
-          </span>
-        )}
-      </div>
+      {/* Description */}
+      {program.description && (
+        <Card>
+          <CardHeader>
+            <CardTitle>Description</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p className="text-gray-600 whitespace-pre-wrap">
+              {program.description}
+            </p>
+          </CardContent>
+        </Card>
+      )}
 
-      {/* Basic Information */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">
-          Basic Information
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label className="block text-sm font-medium text-gray-500 mb-1">
-              Program Name
-            </label>
-            <p className="text-base text-gray-900">{data.name || "-"}</p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-500 mb-1">
-              Program Type
-            </label>
-            <p className="text-base text-gray-900">{data.type || "-"}</p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-500 mb-1">
-              Rumah Quran
-            </label>
-            <p className="text-base text-gray-900">
-              {rumahQuran ? `${rumahQuran.code} - ${rumahQuran.name}` : "-"}
-            </p>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-500 mb-1">
-              Submitted By
-            </label>
-            <p className="text-base text-gray-900">
-              {submittedBy?.name || submittedBy?.email || "-"}
-            </p>
-          </div>
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-500 mb-1">
-              Description
-            </label>
-            <p className="text-base text-gray-900 whitespace-pre-wrap">
-              {data.description || "-"}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* Schedule Information */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Proposed Schedule */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Calendar className="w-5 h-5 text-blue-600" />
-            <h3 className="text-lg font-semibold text-gray-900">
-              Proposed Schedule
-            </h3>
-          </div>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">
-                Start Date
-              </label>
-              <p className="text-base text-gray-900">
-                {formatDate(data.submitted_start_date)}
-              </p>
+      {/* Schedule */}
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Calendar className="h-4 w-4 text-yellow-500" />
+              Submitted Schedule
+            </CardTitle>
+            <CardDescription>Proposed timeline</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-500">Start Date</span>
+              <span className="text-sm font-medium">
+                {formatDate(program.submitted_start_date)}
+              </span>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">
-                End Date
-              </label>
-              <p className="text-base text-gray-900">
-                {formatDate(data.submitted_end_date)}
-              </p>
+            <Separator />
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-500">End Date</span>
+              <span className="text-sm font-medium">
+                {formatDate(program.submitted_end_date)}
+              </span>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">
-                Duration
-              </label>
-              <p className="text-base text-gray-900">
-                {data.submitted_duration
-                  ? `${data.submitted_duration} days`
+            <Separator />
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-500">Duration</span>
+              <span className="text-sm font-medium">
+                {program.submitted_duration
+                  ? `${program.submitted_duration} days`
                   : "-"}
-              </p>
+              </span>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
-        {/* Actual Schedule */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Calendar className="w-5 h-5 text-green-600" />
-            <h3 className="text-lg font-semibold text-gray-900">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Clock className="h-4 w-4 text-yellow-500" />
               Actual Schedule
-            </h3>
-          </div>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">
-                Start Date
-              </label>
-              <p className="text-base text-gray-900">
-                {formatDate(data.actual_start_date)}
-              </p>
+            </CardTitle>
+            <CardDescription>Execution timeline</CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-500">Start Date</span>
+              <span className="text-sm font-medium">
+                {formatDate(program.actual_start_date)}
+              </span>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">
-                End Date
-              </label>
-              <p className="text-base text-gray-900">
-                {formatDate(data.actual_end_date)}
-              </p>
+            <Separator />
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-500">End Date</span>
+              <span className="text-sm font-medium">
+                {formatDate(program.actual_end_date)}
+              </span>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">
-                Duration
-              </label>
-              <p className="text-base text-gray-900">
-                {data.actual_duration ? `${data.actual_duration} days` : "-"}
-              </p>
+            <Separator />
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-500">Duration</span>
+              <span className="text-sm font-medium">
+                {program.actual_duration
+                  ? `${program.actual_duration} days`
+                  : "-"}
+              </span>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
 
-      {/* Budget & Audience */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-        {/* Budget */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <DollarSign className="w-5 h-5 text-yellow-600" />
-            <h3 className="text-lg font-semibold text-gray-900">Budget</h3>
-          </div>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">
-                Proposed Budget
-              </label>
-              <p className="text-base text-gray-900">
-                {formatCurrency(data.submitted_cost)}
-              </p>
+      {/* Budget */}
+      <div className="grid gap-6 md:grid-cols-2">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <DollarSign className="h-4 w-4 text-yellow-500" />
+              Budget
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-500">Submitted Budget</span>
+              <span className="text-sm font-medium">
+                {formatCurrency(program.submitted_cost)}
+              </span>
             </div>
-            {userProfile?.user_roles === "MASTER" && (
-              <div>
-                <label className="block text-sm font-medium text-gray-500 mb-1">
-                  Approved Budget
-                </label>
-                <p className="text-base text-gray-900 font-semibold">
-                  {formatCurrency(data.approved_cost)}
-                </p>
-              </div>
+            {isMaster && (
+              <>
+                <Separator />
+                <div className="flex justify-between">
+                  <span className="text-sm text-gray-500">Approved Budget</span>
+                  <span className="text-sm font-medium text-green-600">
+                    {formatCurrency(program.approved_cost)}
+                  </span>
+                </div>
+              </>
             )}
-          </div>
-        </div>
+          </CardContent>
+        </Card>
 
-        {/* Audience */}
-        <div className="bg-white rounded-lg shadow p-6">
-          <div className="flex items-center gap-2 mb-4">
-            <Users className="w-5 h-5 text-purple-600" />
-            <h3 className="text-lg font-semibold text-gray-900">Audience</h3>
-          </div>
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">
-                Estimated Audience
-              </label>
-              <p className="text-base text-gray-900">
-                {data.estimated_audience_number
-                  ? `${data.estimated_audience_number} people`
-                  : "-"}
-              </p>
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <Users className="h-4 w-4 text-yellow-500" />
+              Audience
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-3">
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-500">Estimated</span>
+              <span className="text-sm font-medium">
+                {program.estimated_audience_number ?? "-"}
+              </span>
             </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-500 mb-1">
-                Actual Audience
-              </label>
-              <p className="text-base text-gray-900">
-                {data.actual_audience_number
-                  ? `${data.actual_audience_number} people`
-                  : "-"}
-              </p>
+            <Separator />
+            <div className="flex justify-between">
+              <span className="text-sm text-gray-500">Actual</span>
+              <span className="text-sm font-medium">
+                {program.actual_audience_number ?? "-"}
+              </span>
             </div>
-          </div>
-        </div>
+          </CardContent>
+        </Card>
       </div>
+
+      {/* Director Verification (MASTER only) */}
+      {isMaster && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <CheckCircle className="h-4 w-4 text-yellow-500" />
+              Director Verification
+            </CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="flex items-center gap-3">
+              <div
+                className={`h-3 w-3 rounded-full ${
+                  program.is_verified_by_director
+                    ? "bg-green-500"
+                    : "bg-gray-300"
+                }`}
+              />
+              <span className="text-sm font-medium">
+                {program.is_verified_by_director
+                  ? "Verified by Director"
+                  : "Not yet verified"}
+              </span>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Metadata */}
-      <div className="bg-white rounded-lg shadow p-6">
-        <h3 className="text-lg font-semibold text-gray-900 mb-4">Metadata</h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 text-sm">
-          <div>
-            <label className="block text-sm font-medium text-gray-500 mb-1">
-              Created At
-            </label>
-            <p className="text-base text-gray-900">
-              {formatDate(data.created_at)}
-            </p>
+      <Card>
+        <CardHeader>
+          <CardTitle>Metadata</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="flex justify-between">
+            <span className="text-sm text-gray-500">Submitted By</span>
+            <span className="text-sm font-medium">
+              {submittedBy?.name || submittedBy?.email || "-"}
+            </span>
           </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-500 mb-1">
-              Last Updated
-            </label>
-            <p className="text-base text-gray-900">
-              {formatDate(data.updated_at)}
-            </p>
+          <Separator />
+          <div className="flex justify-between">
+            <span className="text-sm text-gray-500">Created At</span>
+            <span className="text-sm font-medium">
+              {formatDate(program.created_at)}
+            </span>
           </div>
-        </div>
-      </div>
+          <Separator />
+          <div className="flex justify-between">
+            <span className="text-sm text-gray-500">Last Updated</span>
+            <span className="text-sm font-medium">
+              {formatDate(program.updated_at)}
+            </span>
+          </div>
+        </CardContent>
+      </Card>
     </div>
   );
 }

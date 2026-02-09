@@ -14,9 +14,7 @@ import {
   EditPage as WorkProgramEditPage,
   ViewPage as WorkProgramViewPage,
 } from "./pages/work-program";
-import { SettingsPage } from "./pages/settings";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
-import "./App.css";
 
 function AppRoutes() {
   const { userEmail, userName } = useAuth();
@@ -41,7 +39,6 @@ function AppRoutes() {
         <Route path="work-program/create" element={<WorkProgramCreatePage />} />
         <Route path="work-program/view/:id" element={<WorkProgramViewPage />} />
         <Route path="work-program/edit/:id" element={<WorkProgramEditPage />} />
-        <Route path="settings" element={<SettingsPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

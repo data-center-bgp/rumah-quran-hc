@@ -6,14 +6,36 @@ import {
   type RumahQuran,
 } from "../../types/database";
 import { api } from "../../utils/supabase";
-
-const statusColors: Record<string, string> = {
-  submitted: "bg-blue-100 text-blue-800",
-  revised: "bg-yellow-100 text-yellow-800",
-  approved: "bg-green-100 text-green-800",
-  rejected: "bg-red-100 text-red-800",
-  completed: "bg-purple-100 text-purple-800",
-};
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Card } from "@/components/ui/card";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 
 const statusLabels: Record<string, string> = {
   submitted: "SUBMITTED",
@@ -30,8 +52,8 @@ export default function ListPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string>("");
-  const [rumahQuranFilter, setRumahQuranFilter] = useState<string>("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [rumahQuranFilter, setRumahQuranFilter] = useState<string>("all");
 
   const fetchData = async () => {
     setLoading(true);
@@ -48,10 +70,8 @@ export default function ListPage() {
       );
 
       if (error) throw error;
-
       setData(result || []);
 
-      // Fetch Rumah Quran list for filter
       const { data: rumahQuranData } = await api.get<RumahQuran[]>(
         "rumah_quran",
         {
@@ -73,15 +93,11 @@ export default function ListPage() {
   }, []);
 
   const handleDelete = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this work program?")) return;
-
     try {
       const { error } = await api.softDelete("work_program_submission", {
         id: `eq.${id}`,
       });
-
       if (error) throw error;
-
       fetchData();
     } catch (err: any) {
       setError(err.message);
@@ -118,13 +134,15 @@ export default function ListPage() {
       item.type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       item.submission_status?.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesStatus = statusFilter
-      ? item.submission_status === statusFilter
-      : true;
+    const matchesStatus =
+      statusFilter && statusFilter !== "all"
+        ? item.submission_status === statusFilter
+        : true;
 
-    const matchesRumahQuran = rumahQuranFilter
-      ? item.rumah_quran_id?.toString() === rumahQuranFilter
-      : true;
+    const matchesRumahQuran =
+      rumahQuranFilter && rumahQuranFilter !== "all"
+        ? item.rumah_quran_id?.toString() === rumahQuranFilter
+        : true;
 
     return matchesSearch && matchesStatus && matchesRumahQuran;
   });
@@ -134,188 +152,200 @@ export default function ListPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h2 className="text-2xl font-bold text-gray-800">
+          <h2 className="text-2xl font-bold tracking-tight">
             Work Program Submissions
           </h2>
-          <p className="text-gray-600 mt-1">
+          <p className="text-gray-500 mt-1">
             Manage work program proposals and submissions
           </p>
         </div>
-        <button
-          onClick={() => navigate("/work-program/create")}
-          className="inline-flex items-center px-4 py-2 bg-yellow-500 hover:bg-yellow-600 text-white font-medium rounded-lg transition-colors"
-        >
-          <Plus className="w-5 h-5 mr-2" />
+        <Button onClick={() => navigate("/work-program/create")}>
+          <Plus className="h-4 w-4 mr-2" />
           New Submission
-        </button>
+        </Button>
       </div>
 
       {/* Search */}
       <div className="relative">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
-        <input
-          type="text"
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+        <Input
           placeholder="Search by name, type, or status..."
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
-          className="w-full pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
+          className="pl-10"
         />
       </div>
 
       {/* Filters */}
-      <div className="flex flex-col sm:flex-row gap-4">
+      <div className="flex flex-col sm:flex-row gap-3">
         <div className="flex items-center gap-2 flex-1">
-          <Filter className="w-5 h-5 text-gray-400" />
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-          >
-            <option value="">All Status</option>
-            <option value="submitted">SUBMITTED</option>
-            <option value="revised">REVISED</option>
-            <option value="approved">APPROVED</option>
-            <option value="rejected">REJECTED</option>
-            <option value="completed">COMPLETED</option>
-          </select>
+          <Filter className="h-4 w-4 text-gray-400 shrink-0" />
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="All Status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Status</SelectItem>
+              <SelectItem value="submitted">SUBMITTED</SelectItem>
+              <SelectItem value="revised">REVISED</SelectItem>
+              <SelectItem value="approved">APPROVED</SelectItem>
+              <SelectItem value="rejected">REJECTED</SelectItem>
+              <SelectItem value="completed">COMPLETED</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <div className="flex-1">
-          <select
-            value={rumahQuranFilter}
-            onChange={(e) => setRumahQuranFilter(e.target.value)}
-            className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-yellow-500"
-          >
-            <option value="">All Rumah Quran</option>
-            {rumahQuranList.map((rq) => (
-              <option key={rq.id} value={rq.id.toString()}>
-                {rq.code} - {rq.name}
-              </option>
-            ))}
-          </select>
+          <Select value={rumahQuranFilter} onValueChange={setRumahQuranFilter}>
+            <SelectTrigger>
+              <SelectValue placeholder="All Rumah Quran" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Rumah Quran</SelectItem>
+              {rumahQuranList.map((rq) => (
+                <SelectItem key={rq.id} value={rq.id.toString()}>
+                  {rq.code} - {rq.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
       {/* Error */}
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-lg">
-          <p className="text-red-600">{error}</p>
+        <div className="rounded-lg bg-red-50 border border-red-200 px-4 py-3 text-sm text-red-600">
+          {error}
         </div>
       )}
 
       {/* Table */}
       {loading ? (
         <div className="flex items-center justify-center h-64">
-          <div className="text-lg text-gray-600">Loading...</div>
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-yellow-500" />
         </div>
       ) : (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
-                <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Program Name
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Rumah Quran
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Type
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Budget
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Status
-                  </th>
-                  <th className="px-6 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Actions
-                  </th>
-                </tr>
-              </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
-                {filteredData.length === 0 ? (
-                  <tr>
-                    <td
-                      colSpan={7}
-                      className="px-6 py-12 text-center text-gray-500"
-                    >
-                      No work programs found
-                    </td>
-                  </tr>
-                ) : (
-                  filteredData.map((item) => (
-                    <tr key={item.id} className="hover:bg-gray-50">
-                      <td className="px-6 py-4">
-                        <div className="text-sm font-medium text-gray-900">
-                          {item.name || "-"}
-                        </div>
-                        <div className="text-sm text-gray-500 truncate max-w-xs">
+        <Card>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Program Name</TableHead>
+                <TableHead>Rumah Quran</TableHead>
+                <TableHead>Type</TableHead>
+                <TableHead>Date</TableHead>
+                <TableHead>Budget</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {filteredData.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={7}
+                    className="text-center py-12 text-gray-500"
+                  >
+                    No work programs found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredData.map((item) => (
+                  <TableRow key={item.id}>
+                    <TableCell>
+                      <div>
+                        <p className="font-medium">{item.name || "-"}</p>
+                        <p className="text-xs text-gray-500 truncate max-w-[200px]">
                           {item.description || "-"}
-                        </div>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {getRumahQuranName(item.rumah_quran_id)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {item.type || "-"}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatDate(item.submitted_start_date)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                        {formatCurrency(item.submitted_cost)}
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap">
-                        <span
-                          className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                            statusColors[
-                              item.submission_status || "submitted"
-                            ] || statusColors.submitted
-                          }`}
-                        >
-                          {statusLabels[
-                            item.submission_status || "submitted"
-                          ] || "SUBMITTED"}
-                        </span>
-                      </td>
-                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                        <button
+                        </p>
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-gray-500 text-sm">
+                      {getRumahQuranName(item.rumah_quran_id)}
+                    </TableCell>
+                    <TableCell className="text-gray-500 text-sm">
+                      {item.type || "-"}
+                    </TableCell>
+                    <TableCell className="text-gray-500 text-sm">
+                      {formatDate(item.submitted_start_date)}
+                    </TableCell>
+                    <TableCell className="text-gray-500 text-sm">
+                      {formatCurrency(item.submitted_cost)}
+                    </TableCell>
+                    <TableCell>
+                      <Badge
+                        variant={
+                          (item.submission_status as
+                            | "submitted"
+                            | "revised"
+                            | "approved"
+                            | "rejected"
+                            | "completed") || "submitted"
+                        }
+                      >
+                        {statusLabels[item.submission_status || "submitted"] ||
+                          "SUBMITTED"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8"
                           onClick={() =>
                             navigate(`/work-program/view/${item.id}`)
                           }
-                          className="text-gray-600 hover:text-gray-900 mr-3"
-                          title="View"
                         >
-                          <Eye className="w-5 h-5" />
-                        </button>
-                        <button
+                          <Eye className="h-4 w-4" />
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-yellow-600 hover:text-yellow-700"
                           onClick={() =>
                             navigate(`/work-program/edit/${item.id}`)
                           }
-                          className="text-yellow-600 hover:text-yellow-900 mr-3"
-                          title="Edit"
                         >
-                          <Edit className="w-5 h-5" />
-                        </button>
-                        <button
-                          onClick={() => handleDelete(item.id)}
-                          className="text-red-600 hover:text-red-900"
-                          title="Delete"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
-                      </td>
-                    </tr>
-                  ))
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
+                          <Edit className="h-4 w-4" />
+                        </Button>
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-8 w-8 text-red-600 hover:text-red-700"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>
+                                Delete Work Program
+                              </AlertDialogTitle>
+                              <AlertDialogDescription>
+                                Are you sure you want to delete "{item.name}"?
+                                This action cannot be undone.
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+                            <AlertDialogFooter>
+                              <AlertDialogCancel>Cancel</AlertDialogCancel>
+                              <AlertDialogAction
+                                onClick={() => handleDelete(item.id)}
+                                className="bg-red-500 hover:bg-red-600"
+                              >
+                                Delete
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </Card>
       )}
     </div>
   );
