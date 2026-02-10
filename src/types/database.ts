@@ -94,6 +94,34 @@ export type WorkProgramSubmissionUpdate = Partial<
 };
 
 // =====================
+// SANTRI
+// =====================
+export interface Santri {
+  id: number;
+  created_at: string;
+  updated_at: string | null;
+  deleted_at: string | null;
+  name: string | null;
+  birthdate: string | null;
+  birthplace: string | null;
+  address: string | null;
+  rumah_quran_id: number | null;
+  institution_origin: string | null;
+  enrollment_status: string | null;
+  enrollment_date: string | null;
+  graduation_status: string | null;
+  graduation_date: string | null;
+}
+
+export type SantriInsert = Omit<Santri, "id" | "created_at"> & {
+  created_at?: string;
+};
+
+export type SantriUpdate = Partial<Omit<Santri, "id">> & {
+  id: number;
+};
+
+// =====================
 // AUTH USER (for context)
 // =====================
 export interface AuthUser {

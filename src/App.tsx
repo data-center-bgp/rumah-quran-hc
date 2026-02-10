@@ -14,6 +14,11 @@ import {
   EditPage as WorkProgramEditPage,
   ViewPage as WorkProgramViewPage,
 } from "./pages/work-program";
+import {
+  ListPage as SantriListPage,
+  CreatePage as SantriCreatePage,
+  EditPage as SantriEditPage,
+} from "./pages/santri";
 import { AuthProvider, useAuth } from "./contexts/AuthContext";
 
 function AppRoutes() {
@@ -39,6 +44,9 @@ function AppRoutes() {
         <Route path="work-program/create" element={<WorkProgramCreatePage />} />
         <Route path="work-program/view/:id" element={<WorkProgramViewPage />} />
         <Route path="work-program/edit/:id" element={<WorkProgramEditPage />} />
+        <Route path="santri" element={<SantriListPage />} />
+        <Route path="santri/create" element={<SantriCreatePage />} />
+        <Route path="santri/edit/:id" element={<SantriEditPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

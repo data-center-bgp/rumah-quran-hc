@@ -5,6 +5,7 @@ import {
   ChevronLeft,
   Building2,
   ClipboardList,
+  GraduationCap,
 } from "lucide-react";
 import iconHc from "@/assets/icon-hc.jpg";
 import supabase from "../utils/supabase";
@@ -51,6 +52,7 @@ export default function Sidebar({
     { id: "dashboard", label: "Dashboard", icon: Home },
     { id: "rumah-quran", label: "Rumah Quran", icon: Building2 },
     { id: "work-program", label: "Work Program", icon: ClipboardList },
+    { id: "santri", label: "Santri", icon: GraduationCap },
   ];
 
   const handleMenuClick = (id: string) => {
