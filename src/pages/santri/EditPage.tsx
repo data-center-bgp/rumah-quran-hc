@@ -353,11 +353,7 @@ export default function EditPage() {
 
         {/* Actions */}
         <div className="flex items-center justify-end gap-3">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => navigate(-1)}
-          >
+          <Button type="button" variant="outline" onClick={() => navigate(-1)}>
             Cancel
           </Button>
           <Button type="submit" disabled={saving}>
