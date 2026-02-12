@@ -3,6 +3,7 @@ import { Menu, Bell, Search } from "lucide-react";
 import { Outlet, useNavigate, useLocation } from "react-router-dom";
 import Sidebar from "./Sidebar";
 import supabase from "../utils/supabase";
+import { useAuth } from "../contexts/AuthContext";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -18,6 +19,7 @@ export default function Dashboard({ userEmail, userName }: DashboardProps) {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
+  const { userProfile } = useAuth();
 
   const getActiveMenu = () => {
     const path = location.pathname;
@@ -55,6 +57,7 @@ export default function Dashboard({ userEmail, userName }: DashboardProps) {
         onLogout={handleLogout}
         userEmail={userEmail}
         userName={userName}
+        userRole={userProfile?.user_roles || undefined}
         collapsed={sidebarCollapsed}
         onToggleCollapse={() => setSidebarCollapsed(!sidebarCollapsed)}
       />
@@ -72,6 +75,7 @@ export default function Dashboard({ userEmail, userName }: DashboardProps) {
             onLogout={handleLogout}
             userEmail={userEmail}
             userName={userName}
+            userRole={userProfile?.user_roles || undefined}
             isMobile={true}
             onClose={() => setSidebarOpen(false)}
           />

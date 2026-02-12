@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Plus, Search, Edit, Trash2, GraduationCap } from "lucide-react";
 import { type Santri, type RumahQuran } from "../../types/database";
 import { api } from "../../utils/supabase";
+import { useAuth } from "../../contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +37,8 @@ import {
 
 export default function ListPage() {
   const navigate = useNavigate();
+  const { userProfile } = useAuth();
+  const isMaster = userProfile?.user_roles === "MASTER";
   const [data, setData] = useState<Santri[]>([]);
   const [rumahQuranList, setRumahQuranList] = useState<RumahQuran[]>([]);
   const [loading, setLoading] = useState(true);
@@ -49,9 +52,14 @@ export default function ListPage() {
     setError(null);
 
     try {
+      const filter: Record<string, string> = { deleted_at: "is.null" };
+      if (!isMaster && userProfile?.rumah_quran_id) {
+        filter.rumah_quran_id = `eq.${userProfile.rumah_quran_id}`;
+      }
+
       const { data: result, error } = await api.get<Santri[]>("santri", {
         select: "*",
-        filter: { deleted_at: "is.null" },
+        filter,
         order: { column: "name", ascending: true },
       });
 

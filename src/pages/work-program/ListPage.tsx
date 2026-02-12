@@ -6,6 +6,7 @@ import {
   type RumahQuran,
 } from "../../types/database";
 import { api } from "../../utils/supabase";
+import { useAuth } from "../../contexts/AuthContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -47,6 +48,8 @@ const statusLabels: Record<string, string> = {
 
 export default function ListPage() {
   const navigate = useNavigate();
+  const { userProfile } = useAuth();
+  const isMaster = userProfile?.user_roles === "MASTER";
   const [data, setData] = useState<WorkProgramSubmission[]>([]);
   const [rumahQuranList, setRumahQuranList] = useState<RumahQuran[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,11 +63,16 @@ export default function ListPage() {
     setError(null);
 
     try {
+      const filter: Record<string, string> = { deleted_at: "is.null" };
+      if (!isMaster && userProfile?.rumah_quran_id) {
+        filter.rumah_quran_id = `eq.${userProfile.rumah_quran_id}`;
+      }
+
       const { data: result, error } = await api.get<WorkProgramSubmission[]>(
         "work_program_submission",
         {
           select: "*",
-          filter: { deleted_at: "is.null" },
+          filter,
           order: { column: "created_at", ascending: false },
         },
       );

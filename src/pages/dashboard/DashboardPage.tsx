@@ -1,7 +1,14 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
-import { Building2, ClipboardList, Clock } from "lucide-react";
+import {
+  Building2,
+  ClipboardList,
+  Clock,
+  Users,
+  MapPin,
+  GraduationCap,
+} from "lucide-react";
 import { api } from "../../utils/supabase";
 import type {
   RumahQuran,
@@ -17,6 +24,15 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 
 interface DashboardStats {
   totalRumahQuran: number;
@@ -36,8 +52,10 @@ const statusLabels: Record<string, string> = {
 };
 
 export default function DashboardPage() {
-  const { userName, userEmail } = useAuth();
+  const { userName, userEmail, userProfile } = useAuth();
   const navigate = useNavigate();
+  const isMaster = userProfile?.user_roles === "MASTER";
+
   const [loading, setLoading] = useState(true);
   const [stats, setStats] = useState<DashboardStats>({
     totalRumahQuran: 0,
@@ -51,21 +69,18 @@ export default function DashboardPage() {
     [],
   );
 
+  // Non-MASTER: assigned Rumah Quran details
+  const [assignedRumahQuran, setAssignedRumahQuran] =
+    useState<RumahQuran | null>(null);
+
+  // MASTER: staff list for their assigned RQ
+  const [staffList, setStaffList] = useState<Profile[]>([]);
+
   useEffect(() => {
     const fetchDashboardData = async () => {
       setLoading(true);
       try {
-        const { data: rumahQuran } = await api.get<RumahQuran[]>(
-          "rumah_quran",
-          {
-            select: "*",
-            filter: { deleted_at: "is.null" },
-          },
-        );
-
-        const activeRQ =
-          rumahQuran?.filter((rq) => rq.is_active === true).length || 0;
-
+        // Common data
         const { data: programs } = await api.get<WorkProgramSubmission[]>(
           "work_program_submission",
           {
@@ -81,10 +96,6 @@ export default function DashboardPage() {
           programs?.filter((p) => p.submission_status === "approved").length ||
           0;
 
-        const { data: users } = await api.get<Profile[]>("profiles", {
-          select: "*",
-        });
-
         const { data: recent } = await api.get<WorkProgramSubmission[]>(
           "work_program_submission",
           {
@@ -95,14 +106,71 @@ export default function DashboardPage() {
           },
         );
 
-        setStats({
-          totalRumahQuran: rumahQuran?.length || 0,
-          activeRumahQuran: activeRQ,
-          totalPrograms: programs?.length || 0,
-          pendingSubmissions: pending,
-          approvedPrograms: approved,
-          totalUsers: users?.length || 0,
-        });
+        if (isMaster) {
+          // MASTER: fetch all RQ + staff for their assigned RQ
+          const { data: rumahQuran } = await api.get<RumahQuran[]>(
+            "rumah_quran",
+            {
+              select: "*",
+              filter: { deleted_at: "is.null" },
+            },
+          );
+
+          const activeRQ =
+            rumahQuran?.filter((rq) => rq.is_active === true).length || 0;
+
+          const { data: users } = await api.get<Profile[]>("profiles", {
+            select: "*",
+            filter: { deleted_at: "is.null" },
+          });
+
+          setStats({
+            totalRumahQuran: rumahQuran?.length || 0,
+            activeRumahQuran: activeRQ,
+            totalPrograms: programs?.length || 0,
+            pendingSubmissions: pending,
+            approvedPrograms: approved,
+            totalUsers: users?.length || 0,
+          });
+
+          // Fetch staff for MASTER's assigned RQ
+          if (userProfile?.rumah_quran_id) {
+            const rq = rumahQuran?.find(
+              (r) => r.id === userProfile.rumah_quran_id,
+            );
+            setAssignedRumahQuran(rq || null);
+
+            const staff =
+              users?.filter(
+                (u) => u.rumah_quran_id === userProfile.rumah_quran_id,
+              ) || [];
+            setStaffList(staff);
+          }
+        } else {
+          // Non-MASTER: fetch their assigned RQ
+          if (userProfile?.rumah_quran_id) {
+            const { data: rqData } = await api.get<RumahQuran[]>(
+              "rumah_quran",
+              {
+                select: "*",
+                filter: {
+                  id: `eq.${userProfile.rumah_quran_id}`,
+                  deleted_at: "is.null",
+                },
+              },
+            );
+            setAssignedRumahQuran(rqData?.[0] || null);
+          }
+
+          setStats({
+            totalRumahQuran: 0,
+            activeRumahQuran: 0,
+            totalPrograms: programs?.length || 0,
+            pendingSubmissions: pending,
+            approvedPrograms: approved,
+            totalUsers: 0,
+          });
+        }
 
         setRecentPrograms(recent || []);
       } catch (error) {
@@ -113,7 +181,7 @@ export default function DashboardPage() {
     };
 
     fetchDashboardData();
-  }, []);
+  }, [isMaster, userProfile?.rumah_quran_id]);
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return "-";
@@ -139,26 +207,89 @@ export default function DashboardPage() {
         </div>
       ) : (
         <>
-          {/* Stats */}
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-            <Card>
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-gray-500">
-                  Total Rumah Quran
-                </CardTitle>
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-yellow-100">
-                  <Building2 className="h-4 w-4 text-yellow-600" />
+          {/* Non-MASTER: Assigned Rumah Quran Card */}
+          {!isMaster && assignedRumahQuran && (
+            <Card className="border-yellow-200 bg-yellow-50/50">
+              <CardHeader className="flex flex-row items-center gap-4 pb-2">
+                <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-yellow-400 to-yellow-500 shadow-sm">
+                  <Building2 className="h-6 w-6 text-white" />
+                </div>
+                <div className="flex-1">
+                  <CardTitle className="text-lg">
+                    {assignedRumahQuran.name}
+                  </CardTitle>
+                  <CardDescription className="flex items-center gap-1">
+                    <span className="font-mono text-yellow-700">
+                      {assignedRumahQuran.code}
+                    </span>
+                    <span className="mx-1">·</span>
+                    <Badge
+                      variant={
+                        assignedRumahQuran.is_active ? "active" : "inactive"
+                      }
+                    >
+                      {assignedRumahQuran.is_active ? "ACTIVE" : "INACTIVE"}
+                    </Badge>
+                  </CardDescription>
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold">
-                  {stats.totalRumahQuran}
+                <div className="grid gap-3 sm:grid-cols-2 mt-2">
+                  {assignedRumahQuran.address && (
+                    <div className="flex items-start gap-2">
+                      <MapPin className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
+                      <span className="text-sm text-gray-600">
+                        {assignedRumahQuran.address}
+                      </span>
+                    </div>
+                  )}
+                  {assignedRumahQuran.location && (
+                    <div className="flex items-start gap-2">
+                      <MapPin className="h-4 w-4 text-gray-400 mt-0.5 shrink-0" />
+                      <span className="text-sm text-gray-600">
+                        {assignedRumahQuran.location}
+                      </span>
+                    </div>
+                  )}
                 </div>
-                <p className="text-xs text-gray-500 mt-1">
-                  {stats.activeRumahQuran} active
-                </p>
               </CardContent>
             </Card>
+          )}
+
+          {!isMaster && !assignedRumahQuran && (
+            <Card className="border-gray-200">
+              <CardContent className="py-8 text-center text-sm text-gray-500">
+                <Building2 className="h-8 w-8 text-gray-300 mx-auto mb-2" />
+                You are not assigned to any Rumah Quran. Contact your
+                administrator.
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Stats - different for MASTER vs non-MASTER */}
+          <div
+            className={`grid gap-4 ${isMaster ? "md:grid-cols-2 lg:grid-cols-3" : "md:grid-cols-2"}`}
+          >
+            {isMaster && (
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-gray-500">
+                    Total Rumah Quran
+                  </CardTitle>
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-yellow-100">
+                    <Building2 className="h-4 w-4 text-yellow-600" />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-3xl font-bold">
+                    {stats.totalRumahQuran}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    {stats.activeRumahQuran} active
+                  </p>
+                </CardContent>
+              </Card>
+            )}
 
             <Card>
               <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -194,6 +325,69 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* MASTER: Staff list for assigned Rumah Quran */}
+          {isMaster && assignedRumahQuran && staffList.length > 0 && (
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-purple-100">
+                    <Users className="h-4 w-4 text-purple-600" />
+                  </div>
+                  <div>
+                    <CardTitle>
+                      Staff — {assignedRumahQuran.code}{" "}
+                      {assignedRumahQuran.name}
+                    </CardTitle>
+                    <CardDescription>
+                      {staffList.length} member
+                      {staffList.length !== 1 ? "s" : ""} assigned
+                    </CardDescription>
+                  </div>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Name</TableHead>
+                      <TableHead>Email</TableHead>
+                      <TableHead>Position</TableHead>
+                      <TableHead>Role</TableHead>
+                      <TableHead>Status</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {staffList.map((staff) => (
+                      <TableRow key={staff.id}>
+                        <TableCell className="font-medium">
+                          {staff.name || "-"}
+                        </TableCell>
+                        <TableCell className="text-gray-500 text-sm">
+                          {staff.email || "-"}
+                        </TableCell>
+                        <TableCell className="text-gray-500 text-sm">
+                          {staff.position || "-"}
+                        </TableCell>
+                        <TableCell>
+                          <Badge variant="default" className="text-xs">
+                            {staff.user_roles || "-"}
+                          </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={staff.is_active ? "active" : "inactive"}
+                          >
+                            {staff.is_active ? "ACTIVE" : "INACTIVE"}
+                          </Badge>
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Recent Programs */}
           <Card>

@@ -26,6 +26,7 @@ interface SidebarProps {
   onLogout: () => void;
   userEmail?: string;
   userName?: string;
+  userRole?: string;
   isMobile?: boolean;
   onClose?: () => void;
   collapsed?: boolean;
@@ -38,6 +39,7 @@ export default function Sidebar({
   onLogout,
   userEmail,
   userName,
+  userRole,
   isMobile = false,
   onClose,
   collapsed = false,
@@ -48,12 +50,21 @@ export default function Sidebar({
     onLogout();
   };
 
-  const menuItems = [
+  const allMenuItems = [
     { id: "dashboard", label: "Dashboard", icon: Home },
-    { id: "rumah-quran", label: "Rumah Quran", icon: Building2 },
+    {
+      id: "rumah-quran",
+      label: "Rumah Quran",
+      icon: Building2,
+      masterOnly: true,
+    },
     { id: "work-program", label: "Work Program", icon: ClipboardList },
     { id: "santri", label: "Santri", icon: GraduationCap },
   ];
+
+  const menuItems = allMenuItems.filter(
+    (item) => !item.masterOnly || userRole === "MASTER",
+  );
 
   const handleMenuClick = (id: string) => {
     setActiveMenu(id);
