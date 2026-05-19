@@ -1,14 +1,7 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { useAuth } from "../../contexts/AuthContext";
-import {
-  Building2,
-  ClipboardList,
-  Clock,
-  Users,
-  MapPin,
-  GraduationCap,
-} from "lucide-react";
+import { Building2, ClipboardList, Clock, Users, MapPin } from "lucide-react";
 import { api } from "../../utils/supabase";
 import type {
   RumahQuran,
@@ -24,7 +17,6 @@ import {
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import {
   Table,
   TableBody,
